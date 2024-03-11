@@ -11,8 +11,9 @@ find_package(moveit_ros_planning_interface REQUIRED)
 find_package(handeye_calibration_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(OpenCV 4 REQUIRED)
+find_package(OpenCV 4 REQUIRED core imgproc aruco highgui)
 find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
 
 add_executable(handeye_calibration
     src/handeye_robot.cpp
@@ -30,12 +31,12 @@ target_compile_features(handeye_calibration PUBLIC c_std_99 cxx_std_17)  # Requi
 ament_target_dependencies(
   handeye_calibration
   rclcpp std_srvs std_msgs sensor_msgs geometry_msgs tf2
-  tf2_ros tf2_eigen
+  tf2_ros tf2_eigen image_transport
   moveit_ros_planning_interface
   cv_bridge Eigen3
   handeye_calibration_msgs
 )
-target_link_libraries(handeye_calibration xviz ${OpenCV_LIBRARIES})
+target_link_libraries(handeye_calibration ${OpenCV_LIBS})
 
 
 
