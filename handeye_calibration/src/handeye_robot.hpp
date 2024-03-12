@@ -24,10 +24,14 @@ public:
     void moveRobot() ;
 
     void showImage();
+
+    bool estimatePose(Eigen::Affine3d &pose) ;
 private:
     void moveRobotCallback(const std::shared_ptr<handeye_calibration_msgs::srv::MoveRobot::Request> request,
                            const std::shared_ptr<handeye_calibration_msgs::srv::MoveRobot::Response> response) ;
  void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
+ void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+
     void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr state);
     void updateTransforms(const std::map<std::string, double> &joint_positions, const builtin_interfaces::msg::Time & time);
     void fetchCameraFrame() ;
@@ -49,5 +53,9 @@ private:
 
     std::shared_ptr<image_transport::ImageTransport> image_transport_;
     std::shared_ptr<image_transport::Subscriber> image_sub_;
+    std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::CameraInfo>> camera_sub_;
     cv::Mat image_ ;
+    sensor_msgs::msg::CameraInfo::SharedPtr camera_info_ = nullptr ;
+    float marker_length_ = 0.1 ;
+
 };
