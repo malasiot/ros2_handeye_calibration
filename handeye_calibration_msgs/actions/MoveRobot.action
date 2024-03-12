@@ -1,0 +1,16 @@
+uint8 REQUEST_TYPE_MOVE_TO_NEXT_POSITION=0
+uint8 REQUEST_TYPE_RESET=1
+#
+uint8 request
+---
+bool success false
+geometry_msgs/Pose target_to_camera
+geometry_msgs/Pose ee_to_base
+sensor_msgs/Image target_image
+---
+uint8 STAGE_MOVE_TO_INITIALIZING=0
+uint8 STAGE_MOVE_TO_PLANNING_MOTION=1
+uint8 STAGE_MOVE_TO_EXECUTING_MOTION=2
+uint8 STAGE_MOVE_TO_DETECTING_MARKERS=3
+
+uint8 stage 

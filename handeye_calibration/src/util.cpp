@@ -39,7 +39,9 @@ Eigen::Affine3d poseMsgToEigenAffine( const  geometry_msgs::msg::Pose &pose) {
     return trans ;
 }
 
-void poseEigenToMsg(const Vector3d &pos, const Quaterniond &orient, geometry_msgs::msg::Pose &pose) {
+geometry_msgs::msg::Pose poseEigenToMsg(const Vector3d &pos, const Quaterniond &orient) {
+    geometry_msgs::msg::Pose pose;
+
     pose.position.x = pos.x() ;
     pose.position.y = pos.y() ;
     pose.position.z = pos.z() ;
@@ -48,16 +50,20 @@ void poseEigenToMsg(const Vector3d &pos, const Quaterniond &orient, geometry_msg
     pose.orientation.y = orient.y() ;
     pose.orientation.z = orient.z() ;
     pose.orientation.w = orient.w() ;
+
+    return pose ;
 }
 
-void poseEigenAffineToMsg(const Affine3d &pose, geometry_msgs::msg::Pose &msg) {
+geometry_msgs::msg::Pose poseEigenAffineToMsg(const Affine3d &pose) {
+    geometry_msgs::msg::Pose msg ;
+
     Vector3d pos;
     Quaterniond orient ;
 
     pos = pose.translation() ;
     orient = pose.rotation() ;
 
-    poseEigenToMsg(pos, orient, msg) ;
+    return poseEigenToMsg(pos, orient) ;
 }
 
 

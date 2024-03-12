@@ -45,28 +45,40 @@ std::vector<Affine3d> compute_poses_around_current_state(const Affine3d &pose, s
     return samples ;
 
 }
-HandEyeRobotCommander::HandEyeRobotCommander():rclcpp::Node("handeye_robot", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true)) {
+HandEyeRobotActionServer::HandEyeRobotActionServer(const rclcpp::NodeOptions & options):rclcpp::Node("handeye_robot", options) {
 
 }
 
-void HandEyeRobotCommander::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
+void HandEyeRobotActionServer::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
     cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::TYPE_8UC3);
     image_ = cv_ptr->image ;
 }
 
-void HandEyeRobotCommander::setup()
+void HandEyeRobotActionServer::setup()
 {
+    this->action_server_ = rclcpp_action::create_server<MoveRobot>(
+         this,
+         "move_robot",
+                []( const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const MoveRobot::Goal> goal) -> rclcpp_action::GoalResponse {
+                    (void)uuid;
+                    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+                },
+    [](const std::shared_ptr<GoalHandleMoveRobot> goal_handle) {
+        (void)goal_handle;
+            return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](const std::shared_ptr<GoalHandleMoveRobot> goal_handle) { std::thread(&HandEyeRobotActionServer::moveRobot, this, goal_handle).detach() ;}) ;
 
     image_transport_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());
 
-    image_sub_ = std::make_shared<image_transport::Subscriber>(image_transport_->subscribe("/image", 10, std::bind(&HandEyeRobotCommander::imageCallback, this, std::placeholders::_1)));
+    image_sub_ = std::make_shared<image_transport::Subscriber>(image_transport_->subscribe("/image", 10, std::bind(&HandEyeRobotActionServer::imageCallback, this, std::placeholders::_1)));
 
     camera_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-                "/camera_info", 10, std::bind(&HandEyeRobotCommander::cameraInfoCallback, this, std::placeholders::_1));
+                "/camera_info", 10, std::bind(&HandEyeRobotActionServer::cameraInfoCallback, this, std::placeholders::_1));
 
 }
 
-void HandEyeRobotCommander::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
+void HandEyeRobotActionServer::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     camera_info_ = msg ;
 
 
@@ -74,12 +86,68 @@ void HandEyeRobotCommander::cameraInfoCallback(const sensor_msgs::msg::CameraInf
 
 }
 
-void HandEyeRobotCommander::moveRobot()
+void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRobot> goal_handle)
 {
+    auto result = std::make_shared<MoveRobot::Result>();
+    auto feedback = std::make_shared<MoveRobot::Feedback>();
 
+    feedback->stage = MoveRobot::Feedback::STAGE_MOVE_TO_INITIALIZING ;
+    goal_handle->publish_feedback(feedback);
+
+    std::string move_group = get_parameter_or<std::string>("move_group", "r_iiwa_arm") ;
+    std::shared_ptr<RobotCommander> commander(new RobotCommander(shared_from_this(), move_group));
+
+    if ( poses_.empty() ) {
+        auto ee_pose = commander->getCurrentPose("r_tool0") ;
+        Affine3d ep = poseMsgToEigenAffine(ee_pose.pose);
+        poses_ = compute_poses_around_current_state(ep, 100) ;
+    }
+    feedback->stage = MoveRobot::Feedback::STAGE_MOVE_TO_PLANNING_MOTION ;
+    goal_handle->publish_feedback(feedback);
+
+    auto pose = poses_[current_pose_] ;
+
+    geometry_msgs::msg::Pose target_pose = poseEigenAffineToMsg(pose) ;
+
+    commander->setPoseTarget(target_pose);
+
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    commander->setEndEffectorLink("r_tool0") ;
+
+    commander->setStartStateToCurrentState();
+    auto const ok = static_cast<bool>(commander->plan(plan));
+
+    feedback->stage = MoveRobot::Feedback::STAGE_MOVE_TO_EXECUTING_MOTION ;
+    goal_handle->publish_feedback(feedback);
+
+    // Execute the plan
+    if(ok) {
+        commander->execute(plan);
+    } else {
+         goal_handle->abort(result);
+        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Planning failed!");
+    }
+
+    feedback->stage = MoveRobot::Feedback::STAGE_MOVE_TO_DETECTING_MARKERS;
+    goal_handle->publish_feedback(feedback);
+
+    Affine3d target_to_camera ;
+    if ( estimatePose(target_to_camera) ) {
+        cout << target_to_camera.matrix() << endl ;
+        result->success = true ;
+        result->target_to_camera = poseEigenAffineToMsg(target_to_camera) ;
+
+        result->ee_to_base = commander->getCurrentPose("r_tool0").pose ;
+
+
+        goal_handle->succeed(result);
+    }
+    else
+        goal_handle->abort(result);
+    current_pose_ ++ ;
 }
 
-void HandEyeRobotCommander::showImage() {
+void HandEyeRobotActionServer::showImage() {
     try {
 
 
@@ -91,7 +159,7 @@ void HandEyeRobotCommander::showImage() {
     }
 }
 
-bool HandEyeRobotCommander::estimatePose(Eigen::Affine3d &pose)
+bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose)
 {
     std::vector<int> markerIds;
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
@@ -143,21 +211,16 @@ bool HandEyeRobotCommander::estimatePose(Eigen::Affine3d &pose)
     return false ;
 }
 
-void HandEyeRobotCommander::moveRobotCallback(const std::shared_ptr<handeye_calibration_msgs::srv::MoveRobot::Request> request, const std::shared_ptr<handeye_calibration_msgs::srv::MoveRobot::Response> response)
-{
-    std::thread(&HandEyeRobotCommander::moveRobot, this).detach() ;
-}
-
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
 
-    auto server = std::make_shared<HandEyeRobotCommander>();
+    auto server = std::make_shared<HandEyeRobotActionServer>();
     server->setup() ;
 
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(server);
     std::thread spinner = std::thread([&executor]() { executor.spin(); });
-
+/*
     std::string move_group = server->get_parameter_or<std::string>("move_group", "r_iiwa_arm") ;
     std::shared_ptr<RobotCommander> commander(new RobotCommander(server, move_group));
 
@@ -200,7 +263,7 @@ int main(int argc, char *argv[]) {
 
         } else if ( c == 'q' ) break ;
     }
-
+*/
     spinner.join() ;
     rclcpp::shutdown();
 

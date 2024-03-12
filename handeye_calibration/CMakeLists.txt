@@ -10,10 +10,13 @@ find_package(ament_cmake REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(handeye_calibration_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4 REQUIRED core imgproc aruco highgui)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
 add_executable(handeye_calibration
     src/handeye_robot.cpp
@@ -30,7 +33,8 @@ target_compile_features(handeye_calibration PUBLIC c_std_99 cxx_std_17)  # Requi
 
 ament_target_dependencies(
   handeye_calibration
-  rclcpp std_srvs std_msgs sensor_msgs geometry_msgs tf2
+  rclcpp  rclcpp_action
+  rclcpp_components std_srvs std_msgs sensor_msgs geometry_msgs tf2
   tf2_ros tf2_eigen image_transport
   moveit_ros_planning_interface
   cv_bridge Eigen3
@@ -38,6 +42,20 @@ ament_target_dependencies(
 )
 target_link_libraries(handeye_calibration ${OpenCV_LIBS})
 
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_AUTOMOC ON)
+
+add_executable(handeye_gui src/handeye_gui.cpp src/handeye_gui.hpp)
+target_include_directories(handeye_gui PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(handeye_gui PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  handeye_gui
+  rclcpp std_msgs sensor_msgs tf2
+  tf2_ros Eigen3
+)
+target_link_libraries(handeye_gui Qt::Widgets)
 
 
 if(BUILD_TESTING)

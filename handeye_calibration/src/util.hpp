@@ -16,9 +16,9 @@ void poseMsgToEigenVectorQuaternion( Eigen::Vector3d &pos,  Eigen::Quaterniond &
 
 Eigen::Affine3d poseMsgToEigenAffine( const  geometry_msgs::msg::Pose &pose) ;
 
-void poseEigenToMsg(const Eigen::Vector3d &pos, const Eigen::Quaterniond &orient, geometry_msgs::msg::Pose &pose) ;
+geometry_msgs::msg::Pose poseEigenToMsg(const Eigen::Vector3d &pos, const Eigen::Quaterniond &orient) ;
 
-void poseEigenAffineToMsg(const Eigen::Affine3d &pose, geometry_msgs::msg::Pose &msg) ;
+geometry_msgs::msg::Pose  poseEigenAffineToMsg(const Eigen::Affine3d &pose) ;
 
 void cameraInfoToCV(const sensor_msgs::msg::CameraInfo::SharedPtr& msg,
     cv::Matx33d& K_,  // Describe current image (includes binning, ROI)
