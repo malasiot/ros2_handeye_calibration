@@ -16,7 +16,7 @@ find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4 REQUIRED core imgproc aruco highgui)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
-find_package(Qt5 COMPONENTS Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
 
 add_executable(handeye_calibration
     src/handeye_robot.cpp
@@ -45,7 +45,11 @@ target_link_libraries(handeye_calibration ${OpenCV_LIBS})
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 
-add_executable(handeye_gui src/handeye_gui.cpp src/handeye_gui.hpp)
+add_executable(handeye_gui
+    src/handeye_gui.cpp
+    src/handeye_gui.hpp
+    src/image_widget.cpp
+    src/image_widget.hpp)
 target_include_directories(handeye_gui PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -59,7 +63,7 @@ ament_target_dependencies(
   cv_bridge
   handeye_calibration_msgs
 )
-target_link_libraries(handeye_gui Qt::Widgets)
+target_link_libraries(handeye_gui Qt::Core Qt::Gui Qt::Widgets)
 
 
 if(BUILD_TESTING)

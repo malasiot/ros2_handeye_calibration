@@ -14,7 +14,7 @@ using namespace Eigen ;
 std::random_device rd;
 std::mt19937 g_rng(rd());
 
-std::vector<Affine3d> compute_poses_around_current_state(const Affine3d &pose, size_t n_samples, double angle_delta = 0.1, double translation_delta = 0.1) {
+std::vector<Affine3d> compute_poses_around_current_state(const Affine3d &pose, size_t n_samples, double angle_delta = 0.2, double translation_delta = 0.2) {
     std::uniform_real_distribution<double> ur(-angle_delta, angle_delta);
     std::uniform_real_distribution<double> ut(-translation_delta, translation_delta);
     vector<Affine3d> samples ;
@@ -25,7 +25,7 @@ std::vector<Affine3d> compute_poses_around_current_state(const Affine3d &pose, s
         double r, p, y ;
         rpyFromQuat(Quaterniond(pose.rotation()), r, p, y) ;
 
-        r += ur(g_rng) ;  p += ur(g_rng) ; y += ur(g_rng) ;
+     //   r += ur(g_rng) ;  p += ur(g_rng) ; y += ur(g_rng) ;
 
         auto q = quatFromRPY(r, p, y) ;
 
@@ -80,10 +80,6 @@ void HandEyeRobotActionServer::setup()
 
 void HandEyeRobotActionServer::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     camera_info_ = msg ;
-
-
-
-
 }
 
 void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRobot> goal_handle)
@@ -125,6 +121,8 @@ void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRob
         commander->execute(plan);
     } else {
          goal_handle->abort(result);
+          current_pose_ ++ ;
+         return ;
         RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Planning failed!");
     }
 
@@ -171,7 +169,19 @@ bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose, cv::Mat &outp
             cv::Mat_<double> dist ;
             cameraInfoToCV(camera_info_, cam, dist) ;
 
-            std::vector<cv::Vec3d> rvecs, tvecs;
+            const int markersX = 3 ;
+            const int markersY = 3 ;
+            const double markerLength = 400 * 0.2 / 1520 ;
+            const double markerSeparation = 80 * 0.2/1520 ;
+
+            cv::Ptr<cv::aruco::GridBoard> board = cv::aruco::GridBoard::create(markersX, markersY, markerLength, markerSeparation, dictionary);
+         //   cv::aruco::refineDetectedMarkers(image_, board, markerCorners, markerIds, rejectedCandidates, cam, dist);
+
+            cv::Vec3d rvec, tvec ;
+            cv::aruco::estimatePoseBoard(markerCorners, markerIds, board, cam, dist, rvec, tvec) ;
+            cv::drawFrameAxes(output_image, cam, dist, rvec, tvec, 0.1);
+/*
+
             cv::aruco::estimatePoseSingleMarkers(markerCorners, marker_length_, cam, dist, rvecs, tvecs);
 
             for (size_t i = 0; i < rvecs.size(); ++i) {
@@ -179,14 +189,15 @@ bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose, cv::Mat &outp
                 auto tvec = tvecs[i];
                 cv::drawFrameAxes(output_image, cam, dist, rvec, tvec, 0.1);
             }
+*/
 
             Matrix3d r ;
             Vector3d t ;
 
             cv::Mat rmat ;
-            cv::Rodrigues(rvecs[0], rmat) ;
+            cv::Rodrigues(rvec, rmat) ;
 
-            cv::Mat_<double> rm(rmat), tmat(tvecs[0]) ;
+            cv::Mat_<double> rm(rmat), tmat(tvec) ;
 
             r << rm(0, 0), rm(0, 1), rm(0, 2), rm(1, 0), rm(1, 1), rm(1, 2), rm(2, 0), rm(2, 1), rm(2, 2) ;
             t << tmat(0, 0), tmat(0, 1), tmat(0, 2) ;

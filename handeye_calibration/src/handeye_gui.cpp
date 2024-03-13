@@ -124,9 +124,13 @@ HandeyeCalibrationDashboard::HandeyeCalibrationDashboard(HandeyeMoveRobotActionC
 
     status_ = new QLabel(this) ;
 
+    image_widget_ = new QImageWidget(this) ;
+
     QVBoxLayout *layout = new QVBoxLayout() ;
+    layout->addWidget(image_widget_) ;
     layout->addWidget(run_button_) ;
     layout->addWidget(status_) ;
+
     setLayout(layout) ;
     connect(run_button_, &QPushButton::clicked, this, &HandeyeCalibrationDashboard::onRun) ;
 
@@ -142,6 +146,7 @@ void HandeyeCalibrationDashboard::setSuccess(const cv::Mat &im)
 {
     status_->setText("Success") ;
     run_button_->setEnabled(true) ;
+    image_widget_->setImage(im) ;
 }
 
 void HandeyeCalibrationDashboard::setFailed()

@@ -6,6 +6,8 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "image_widget.hpp"
+
 class HandeyeMoveRobotActionClient ;
 using HandeyeMoveRobotActionClientPtr = std::shared_ptr<HandeyeMoveRobotActionClient> ;
 
@@ -26,6 +28,7 @@ private:
     HandeyeMoveRobotActionClientPtr action_client_node_ ;
     QPushButton *run_button_ ;
     QLabel *status_ ;
+    QImageWidget *image_widget_ ;
 
  };
 
