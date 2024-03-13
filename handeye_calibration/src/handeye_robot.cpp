@@ -132,13 +132,18 @@ void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRob
     goal_handle->publish_feedback(feedback);
 
     Affine3d target_to_camera ;
-    if ( estimatePose(target_to_camera) ) {
+    cv::Mat viz ;
+    if ( estimatePose(target_to_camera, viz) ) {
         cout << target_to_camera.matrix() << endl ;
         result->success = true ;
         result->target_to_camera = poseEigenAffineToMsg(target_to_camera) ;
 
         result->ee_to_base = commander->getCurrentPose("r_tool0").pose ;
 
+        sensor_msgs::msg::Image::SharedPtr image_msg =
+                   cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", viz)
+                       .toImageMsg();
+        result->target_image = *image_msg ;
 
         goal_handle->succeed(result);
     }
@@ -147,19 +152,7 @@ void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRob
     current_pose_ ++ ;
 }
 
-void HandEyeRobotActionServer::showImage() {
-    try {
-
-
-
-        } catch (cv_bridge::Exception &e) {
-          auto logger = rclcpp::get_logger("my_subscriber");
-     //     RCLCPP_ERROR(logger, "Could not convert from '%s' to 'bgr8'.",
-     //                  msg->encoding.c_str());
-    }
-}
-
-bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose)
+bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose, cv::Mat &output_image)
 {
     std::vector<int> markerIds;
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
@@ -170,7 +163,7 @@ bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose)
 
     //cv::imwrite("/tmp/im.png", image_) ;
     if ( markerIds.size() > 0 ) {
-        cv::Mat output_image = image_.clone();
+        output_image = image_.clone();
         cv::aruco::drawDetectedMarkers(output_image, markerCorners, markerIds);
 
         if ( camera_info_ ) {

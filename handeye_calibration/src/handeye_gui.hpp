@@ -2,22 +2,30 @@
 
 #include <QWidget>
 #include <QPushButton>
-#include <rclcpp/rclcpp.hpp>
+#include <QLabel>
+
+#include <opencv2/opencv.hpp>
+
+class HandeyeMoveRobotActionClient ;
+using HandeyeMoveRobotActionClientPtr = std::shared_ptr<HandeyeMoveRobotActionClient> ;
 
 class HandeyeCalibrationDashboard: public QWidget
 {
     Q_OBJECT
 
 public:
+    HandeyeCalibrationDashboard(HandeyeMoveRobotActionClientPtr nh, QWidget *parent = 0);
 
-    HandeyeCalibrationDashboard(rclcpp::Node::ConstSharedPtr nh, QWidget *parent = 0);
+    void setMessage(const std::string &message) ;
+    void setSuccess(const cv::Mat &im) ;
+    void setFailed() ;
 
 private Q_SLOTS:
-
     void onRun() ;
-
 private:
-    rclcpp::Node::ConstSharedPtr handle_ ;
+    HandeyeMoveRobotActionClientPtr action_client_node_ ;
     QPushButton *run_button_ ;
+    QLabel *status_ ;
 
  };
+

@@ -54,6 +54,10 @@ ament_target_dependencies(
   handeye_gui
   rclcpp std_msgs sensor_msgs tf2
   tf2_ros Eigen3
+  rclcpp_action
+  rclcpp_components
+  cv_bridge
+  handeye_calibration_msgs
 )
 target_link_libraries(handeye_gui Qt::Widgets)
 

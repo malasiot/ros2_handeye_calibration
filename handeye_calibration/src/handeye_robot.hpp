@@ -26,7 +26,7 @@ public:
 
     void showImage();
 
-    bool estimatePose(Eigen::Affine3d &pose) ;
+    bool estimatePose(Eigen::Affine3d &pose, cv::Mat &out) ;
 private:
 
  void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
