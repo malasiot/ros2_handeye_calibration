@@ -71,10 +71,10 @@ void HandEyeRobotActionServer::setup()
 
     image_transport_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());
 
-    image_sub_ = std::make_shared<image_transport::Subscriber>(image_transport_->subscribe("/image", 10, std::bind(&HandEyeRobotActionServer::imageCallback, this, std::placeholders::_1)));
+    image_sub_ = std::make_shared<image_transport::Subscriber>(image_transport_->subscribe("/virtual_camera/color/image_raw", 10, std::bind(&HandEyeRobotActionServer::imageCallback, this, std::placeholders::_1)));
 
     camera_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-                "/camera_info", 10, std::bind(&HandEyeRobotActionServer::cameraInfoCallback, this, std::placeholders::_1));
+                "/virtual_camera/color/camera_info", 10, std::bind(&HandEyeRobotActionServer::cameraInfoCallback, this, std::placeholders::_1));
 
 }
 
