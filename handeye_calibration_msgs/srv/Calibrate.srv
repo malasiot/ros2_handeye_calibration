@@ -1,0 +1,4 @@
+int32[] frames
+---
+bool success   # indicate successful run of triggered service
+geometry_msgs/Pose result

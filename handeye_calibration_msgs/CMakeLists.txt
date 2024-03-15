@@ -13,8 +13,7 @@ find_package(action_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/MoveRobot.srv"
-#  "srv/Status.srv"
+  "srv/Calibrate.srv"
   "actions/MoveRobot.action"
   DEPENDENCIES geometry_msgs action_msgs sensor_msgs
 )

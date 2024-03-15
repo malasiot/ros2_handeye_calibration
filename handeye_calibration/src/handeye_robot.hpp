@@ -11,6 +11,7 @@
 #include "tf2_ros/buffer.h"
 #include "robot_commander.hpp"
 #include "handeye_calibration_msgs/action/move_robot.hpp"
+#include "handeye_calibration_msgs/srv/calibrate.hpp"
 #include "image_transport/image_transport.hpp"
 #include "cv_bridge/cv_bridge.h"
 #include "rclcpp_components/register_node_macro.hpp"
@@ -27,24 +28,25 @@ public:
     void showImage();
 
     bool estimatePose(Eigen::Affine3d &pose, cv::Mat &out) ;
+
 private:
 
  void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
  void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
-    void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr state);
-    void updateTransforms(const std::map<std::string, double> &joint_positions, const builtin_interfaces::msg::Time & time);
-    void fetchCameraFrame() ;
-    void setupModel(const std::string &model_path) ;
+
 
 private:
     using MoveRobot = handeye_calibration_msgs::action::MoveRobot;
     using GoalHandleMoveRobot = rclcpp_action::ServerGoalHandle<MoveRobot>;
+    using Calibrate = handeye_calibration_msgs::srv::Calibrate ;
 
     rclcpp_action::Server<MoveRobot>::SharedPtr action_server_;
+    rclcpp::Service<Calibrate>::SharedPtr calibration_service_ ;
 
     void moveRobot(const std::shared_ptr<GoalHandleMoveRobot> goal_handle) ;
-
+    void resetRobot(const std::shared_ptr<GoalHandleMoveRobot> goal_handle) ;
+    void calibrate(const std::shared_ptr<Calibrate::Request> request, std::shared_ptr<Calibrate::Response> response) ;
 
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 
@@ -57,6 +59,14 @@ private:
     cv::Mat image_ ;
     sensor_msgs::msg::CameraInfo::SharedPtr camera_info_ = nullptr ;
     float marker_length_ = 0.1 ;
+
+    struct CalibrationDataSample {
+        Eigen::Affine3d cam2target_ ;
+        Eigen::Affine3d base2gripper_ ;
+        int frame_id_ ;
+    };
+
+    std::vector<CalibrationDataSample> samples_ ;
 
 };
 RCLCPP_COMPONENTS_REGISTER_NODE(HandEyeRobotActionServer)

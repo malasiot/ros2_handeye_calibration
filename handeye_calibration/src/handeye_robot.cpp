@@ -67,7 +67,15 @@ void HandEyeRobotActionServer::setup()
         (void)goal_handle;
             return rclcpp_action::CancelResponse::ACCEPT;
     },
-    [this](const std::shared_ptr<GoalHandleMoveRobot> goal_handle) { std::thread(&HandEyeRobotActionServer::moveRobot, this, goal_handle).detach() ;}) ;
+    [this](const std::shared_ptr<GoalHandleMoveRobot> goal_handle) {
+        if ( goal_handle->get_goal()->request == MoveRobot::Goal::REQUEST_TYPE_MOVE_TO_NEXT_POSITION )
+            std::thread(&HandEyeRobotActionServer::moveRobot, this, goal_handle).detach() ;
+        else if ( goal_handle->get_goal()->request == MoveRobot::Goal::REQUEST_TYPE_RESET )
+            std::thread(&HandEyeRobotActionServer::resetRobot, this, goal_handle).detach() ;
+    }) ;
+
+    calibration_service_ = create_service<Calibrate>("handeye_calibration", std::bind(&HandEyeRobotActionServer::calibrate, this, std::placeholders::_1, std::placeholders::_2));
+
 
     image_transport_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());
 
@@ -133,7 +141,7 @@ void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRob
     cv::Mat viz ;
     if ( estimatePose(target_to_camera, viz) ) {
         cout << target_to_camera.matrix() << endl ;
-        result->success = true ;
+
         result->target_to_camera = poseEigenAffineToMsg(target_to_camera) ;
 
         result->ee_to_base = commander->getCurrentPose("r_tool0").pose ;
@@ -143,11 +151,44 @@ void HandEyeRobotActionServer::moveRobot(const std::shared_ptr<GoalHandleMoveRob
                        .toImageMsg();
         result->target_image = *image_msg ;
 
+        result->frame_id = samples_.size() ;
+
         goal_handle->succeed(result);
+
+        CalibrationDataSample sample ;
+        sample.frame_id_ = current_pose_ ;
+        sample.cam2target_ = target_to_camera ;
+        sample.base2gripper_ = poseMsgToEigenAffine(result->ee_to_base) ;
+        samples_.emplace_back(sample) ;
     }
     else
         goal_handle->abort(result);
     current_pose_ ++ ;
+}
+
+void HandEyeRobotActionServer::resetRobot(const std::shared_ptr<GoalHandleMoveRobot> goal_handle)
+{
+    std::string move_group = get_parameter_or<std::string>("move_group", "r_iiwa_arm") ;
+    std::shared_ptr<RobotCommander> commander(new RobotCommander(shared_from_this(), move_group));
+
+    auto result = std::make_shared<MoveRobot::Result>();
+    commander->setNamedTarget("calibration") ;
+    if ( commander->move() == moveit::core::MoveItErrorCode::SUCCESS ) {
+        poses_.clear() ;
+        auto ee_pose = commander->getCurrentPose("r_tool0") ;
+        Affine3d ep = poseMsgToEigenAffine(ee_pose.pose);
+        poses_ = compute_poses_around_current_state(ep, 100) ;
+        current_pose_ = 0 ;
+        samples_.clear() ;
+        goal_handle->succeed(result) ;
+    } else {
+        goal_handle->abort(result) ;
+    }
+}
+
+void HandEyeRobotActionServer::calibrate(const std::shared_ptr<Calibrate::Request> request, std::shared_ptr<Calibrate::Response> response)
+{
+
 }
 
 bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose, cv::Mat &output_image)
@@ -175,21 +216,12 @@ bool HandEyeRobotActionServer::estimatePose(Eigen::Affine3d &pose, cv::Mat &outp
             const double markerSeparation = 80 * 0.2/1520 ;
 
             cv::Ptr<cv::aruco::GridBoard> board = cv::aruco::GridBoard::create(markersX, markersY, markerLength, markerSeparation, dictionary);
-         //   cv::aruco::refineDetectedMarkers(image_, board, markerCorners, markerIds, rejectedCandidates, cam, dist);
+            cv::aruco::refineDetectedMarkers(image_, board, markerCorners, markerIds, rejectedCandidates, cam, dist);
 
             cv::Vec3d rvec, tvec ;
             cv::aruco::estimatePoseBoard(markerCorners, markerIds, board, cam, dist, rvec, tvec) ;
             cv::drawFrameAxes(output_image, cam, dist, rvec, tvec, 0.1);
-/*
 
-            cv::aruco::estimatePoseSingleMarkers(markerCorners, marker_length_, cam, dist, rvecs, tvecs);
-
-            for (size_t i = 0; i < rvecs.size(); ++i) {
-                auto rvec = rvecs[i];
-                auto tvec = tvecs[i];
-                cv::drawFrameAxes(output_image, cam, dist, rvec, tvec, 0.1);
-            }
-*/
 
             Matrix3d r ;
             Vector3d t ;
@@ -220,54 +252,12 @@ int main(int argc, char *argv[]) {
 
     auto server = std::make_shared<HandEyeRobotActionServer>();
     server->setup() ;
+   // server->reset() ;
 
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(server);
     std::thread spinner = std::thread([&executor]() { executor.spin(); });
-/*
-    std::string move_group = server->get_parameter_or<std::string>("move_group", "r_iiwa_arm") ;
-    std::shared_ptr<RobotCommander> commander(new RobotCommander(server, move_group));
 
-    auto ee_pose = commander->getCurrentPose("r_tool0") ;
-    Affine3d ep = poseMsgToEigenAffine(ee_pose.pose);
-    auto poses = compute_poses_around_current_state(ep, 100) ;
-
-    uint current_pose = 0 ;
-    while ( 1 ) {
-        cout << "Press <enter> to move to a new position or <q> to quit" << endl ;
-        char c = getchar();
-        if ( c == '\n') {
-            auto pose = poses[current_pose] ;
-
-            geometry_msgs::msg::Pose target_pose ;
-
-            poseEigenAffineToMsg(pose, target_pose) ;
-
-            commander->setPoseTarget(target_pose);
-
-            moveit::planning_interface::MoveGroupInterface::Plan plan;
-            commander->setEndEffectorLink("r_tool0") ;
-
-            commander->setStartStateToCurrentState();
-            auto const ok = static_cast<bool>(commander->plan(plan));
-
-            // Execute the plan
-            if(ok) {
-                commander->execute(plan);
-            } else {
-                RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Planning failed!");
-            }
-
-            Affine3d camera_to_target ;
-            if ( server->estimatePose(camera_to_target) ) {
-                cout << camera_to_target.matrix() << endl ;
-            }
-            current_pose ++ ;
-
-
-        } else if ( c == 'q' ) break ;
-    }
-*/
     spinner.join() ;
     rclcpp::shutdown();
 
