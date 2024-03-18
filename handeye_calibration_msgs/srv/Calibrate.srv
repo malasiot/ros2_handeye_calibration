@@ -1,4 +1,11 @@
+uint8 HANDEYE_ALGORITHM_TSAI=0
+uint8 HANDEYE_ALGORITHM_ANDREEF=1
+uint8 HANDEYE_ALGORITHM_DANIELIDES=2
+uint8 HANDEYE_ALGORITHM_HORAUD=3
+uint8 HANDEYE_ALGORITHM_PARK=4
+#
 int32[] frames
+int32 algorithm
 ---
 bool success   # indicate successful run of triggered service
 geometry_msgs/Pose result

@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QListView>
 #include <QStringListModel>
+#include <QComboBox>
 
 #include <opencv2/opencv.hpp>
 
@@ -13,12 +14,15 @@
 class HandeyeMoveRobotActionClient ;
 using HandeyeMoveRobotActionClientPtr = std::shared_ptr<HandeyeMoveRobotActionClient> ;
 
+class HandeyeCalibrationClient ;
+using HandeyeCalibrationClientPtr = std::shared_ptr<HandeyeCalibrationClient> ;
+
 class HandeyeCalibrationDashboard: public QWidget
 {
     Q_OBJECT
 
 public:
-    HandeyeCalibrationDashboard(HandeyeMoveRobotActionClientPtr nh, QWidget *parent = 0);
+    HandeyeCalibrationDashboard(HandeyeMoveRobotActionClientPtr nh, HandeyeCalibrationClientPtr ch, QWidget *parent = 0);
 
     void setMessage(const std::string &message) ;
     void setMoveSuccess(const cv::Mat &im, int frame_id) ;
@@ -41,8 +45,11 @@ private:
     void enableButtons(bool enable) ;
 
     HandeyeMoveRobotActionClientPtr action_client_node_ ;
+    HandeyeCalibrationClientPtr calibration_client_node_ ;
+
     QPushButton *run_button_, *reset_button_, *cal_button_ ;
     QLabel *status_ ;
+    QComboBox *algorithm_ ;
     QImageWidget *image_widget_ ;
     QStringListModel *model_ ;
     QListView *list_view_ ;

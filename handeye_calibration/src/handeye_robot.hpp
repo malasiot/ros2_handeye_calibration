@@ -48,7 +48,7 @@ private:
     void resetRobot(const std::shared_ptr<GoalHandleMoveRobot> goal_handle) ;
     void calibrate(const std::shared_ptr<Calibrate::Request> request, std::shared_ptr<Calibrate::Response> response) ;
 
-    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+    void exportSamples() ;
 
     std::vector<Eigen::Affine3d> poses_ ;
     uint current_pose_ = 0;
@@ -58,7 +58,10 @@ private:
     std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::CameraInfo>> camera_sub_;
     cv::Mat image_ ;
     sensor_msgs::msg::CameraInfo::SharedPtr camera_info_ = nullptr ;
-    float marker_length_ = 0.1 ;
+
+    std::string camera_info_topic_, image_topic_, ee_link_, move_group_, robot_start_state_name_, aruco_dict_ ;
+    uint32_t markers_x_, markers_y_ ;
+    double marker_length_, marker_separation_ ;
 
     struct CalibrationDataSample {
         Eigen::Affine3d cam2target_ ;
